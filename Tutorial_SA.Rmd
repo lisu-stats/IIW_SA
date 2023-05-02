@@ -1,0 +1,176 @@
+---
+title: "A quick tutorial of implementing  the sensitivity analysis approach for informative visit times in Yiu and Su (2023)"
+author: "Li Su, Sean Yiu"
+date: ""
+header-includes:
+   - \usepackage{bm}
+output: pdf_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, fig.width=10, fig.height=5,error=FALSE, message=FALSE, warning=FALSE)
+```
+
+We provided a quick tutorial to demonstrate how to implement the  sensitivity analysis approach for informative visit times in marginal regression analysis  proposed in  Yiu and Su (2023). Functions to be called in this tutorial were saved in *Functions.R*. 
+```{r, echo=T}
+source('Functions.R') ## functions to be called 
+```
+
+
+### 1. Data
+
+We simulated longitudinal continuous data  based on the data generating mechanism described in Section 3.1 of Yiu and Su (2023).
+Let $t=0.01,0.02,\ldots,0.49, 5$ be the possible visit times. At each visit time $t$,  two time-varying covariates $X_1(t)$ and $X_2(t)$ from independent normal distributions with mean $-Z$ and unit variance were generated. The group variable $Z$ was generated from  a Bernoulli(0.5) distribution  at baseline. 
+The outcome $Y(t)$ at $t$ was generated from a Normal distribution with the  mean
+\begin{equation}\label{model}
+\mbox{E}\{Y(t)\mid X(t),Z\}=5+X_1(t)+X_2(t)-0.5X_1(t)X_2(t)-2Z-0.5t,
+\end{equation}
+and a standard deviation of 0.5. For the visit process, We used the Bernoulli distribution to approximate a Cox model as the event/visit rate was set to be low. The visit indicator $dN(t)$ was from a Bernoulli distribution with success probability $\mbox{min}[1,\exp\{-3.05-2t+0.5X_1(t)+0.5X_2(t)+0.5X_1(t)X_2(t)+Z+0.3 Y(t)\}]$.  Note that the visit process depended on the current outcome $Y(t)$, therefore the visiting at random assumption was violated.
+
+
+```{r}
+set.seed(20230322)
+no_of_pat<-500
+DATA<-DATAGEN_cont(no_of_pat)
+```
+
+There were 500 patients in the simulated dataset.  Below were the first six rows of these data saved in the data.frame *DATA*. 'ID' was subject ID; 't_start' and 't_stop' were the start and end of the risk interval for the visit process. 'status' was the visit indicator.   'Z' was the baseline group indicator.  'Y' was the longitudinal outcome.  'X1' and 'X2' were time-varying covariates and 'X1X2' were their interaction.  The observed data only contained `r sum(DATA$status)` records from those who made a visit (i.e. with 'status=1'). 
+
+
+```{r}
+print(DATA[1:6, ], row.names = F)
+```
+
+
+
+
+### 2. Marginal model
+
+
+We were interested in estimating the regression coefficients $\beta_1$ and $\beta_2$ in the model for the marginal mean of the outcome $\mbox{E} \{Y (t) \mid Z, t \}= \beta_0+\beta_1 Z+ \beta_2 t$ . The true values of $\beta_1$ and $\beta_2$ were $-4.5$ and $-0.5$, respectively, which were obtained by averaging out $X_1(t)$ and $X_2(t)$ from the model in \eqref{model}. 
+
+
+
+### 3. Estimators of $\beta_1$ and $\beta_2$
+
+For all estimators of $\beta_1$ and $\beta_2$ except the naive estimator, we assumed that the selection function $\phi Y(t)$ was correctly specified. In our case $\phi=0.3$. In practice, we can set $\phi$ at plausible values to assess the sensitivity of substantive conclusions to violations of the visiting at random assumption. 
+
+#### 3.1 The naive estimator without inverse intensity weighting 
+
+Without weighting, we can fit  a linear model to the observed  data. 
+
+```{r, echo=TRUE}
+vis_ind<-which(DATA$status==1)
+ugeemod<-lm(Y~Z+t_stop,data=DATA[vis_ind,])
+ugeeest<-ugeemod$coef
+print(summary(ugeemod))
+```
+
+The  naive  estimates of $\beta_1$ and $\beta_2$ were `r round(ugeeest[2], digits=2)` and `r round(ugeeest[3], digits=2)`, respectively. The naive estimator  overestimated both the group effect  $\beta_1$ and the time effect $\beta_2$.
+
+
+
+
+
+#### 3.2 The standard inverse intensity weighted estimator (IIWE) with weights estimated using a Cox model
+
+If the selection function was omitted, we can  fit a Cox model using the observed covariates. Then we estimated the visit intensities and saved them in *hazest*. 
+
+
+```{r, echo=TRUE}
+  library(survival)
+  coxmod<-coxph(formula=Surv(t_start,t_stop,status)~Z+X1+X2+X1X2,data=DATA)
+  var_vec<-c("Z","X1","X2","X1X2")
+  hazest<-exp(colSums(coxmod$coef*t(as.matrix(DATA[,var_vec]))))
+  print(coxmod)
+  
+```
+
+We  used  the inverse of the estimated visit intensity as weights in the linear model.
+
+
+```{r, echo=TRUE}
+  wgeemod_noselect<-lm(Y~Z+t_stop,weights=1/hazest[vis_ind],data=DATA[vis_ind,])
+  wgeeest_noselect<-wgeemod_noselect$coef
+  print(summary(wgeemod_noselect))
+
+```
+The  standard IIWE estimates of $\beta_1$, $\beta_2$ were `r round(wgeeest_noselect[2], digits=2)` and `r round(wgeeest_noselect[3], digits=2)`, respectively. The estimate of $\beta_1$ was close to the true value, but 
+$\beta_2$ was underestimated.  
+
+
+We then fit a Cox model  with the observed covariates and the correct selection function. Following the sensitivity analysis approach  described in Sections 2.2 and 2.4 in Yiu and Su (2023), we set the inverse of the selection function, $\exp\{-0.3 Y(t)\}$, as the case weights *w* when  the visit indicator *status=1*. Note that *w=1* if *status=0*. An offset term $-\log [\exp\{-0.3 Y(t)\}]$ was created to prevent the *coxph* function from recalculating the weighted sums of the covariates in the score functions of the Cox model using the case weights *w*. We therefore were able to use the weighted score functions in equation (2.8) of Yiu and Su (2023) to estimate the rest of the  parameters in the Cox model.  
+
+
+```{r, echo=TRUE}
+DATA$w <- exp(-0.3*DATA$Y*DATA$status)
+DATA$of <- -log(DATA$w)
+coxmod <- coxph(formula=Surv(t_start,t_stop,status)~Z+X1+X2+X1X2+offset(of),
+              data=DATA, weight=w, ties='breslow') 
+print(summary(coxmod))
+```
+
+Then we saved the exponential of the linear predictor function  of the fitted Cox model in *hazest*. Together with the specified selection function, we  estimated the inverse visit intensities and saved in *iiweight*, which were then included  in the linear model for the observed longitudinal continuous data as weights.   
+
+```{r, echo=TRUE}
+var_vec<-c("Z","X1","X2","X1X2" )
+hazest<-exp(colSums(coxmod$coef*t(as.matrix(DATA[,var_vec]))))
+iiweight<-1/hazest[vis_ind]*exp(-0.3*DATA$Y[vis_ind])
+wgeemod<-lm(Y~Z+t_stop,weights=iiweight,data=DATA[vis_ind,])
+wgeeest<-wgeemod$coef
+print(summary(wgeemod))
+```
+
+
+
+The  standard IIWE estimates of $\beta_1$, $\beta_2$ now became `r round(wgeeest[2], digits=2)` and `r round(wgeeest[3], digits=2)`, respectively. 
+
+
+
+#### 3.3 The IIWE with the balancing weights 
+
+To obtain the  balancing weights proposed in Yiu and Su (2023), we first estimated the increments of cumulative hazard function using the Breslow estimator, where the visit indicator *status* was multiplied by $\exp\{-0.3 Y(t)\}$ to account for the impact of the selection function.  These estimates were saved in *haz_cont*.  
+
+```{r, echo=TRUE}
+  DATA$status2<-DATA$status*exp(-0.3*DATA$Y)
+
+  DATA_list_status<-split(DATA$status2,DATA$ID)
+  no_of_events<-Reduce(`+`,DATA_list_status)
+  
+  DATA_list_hazest<-split(hazest,DATA$ID)
+  sum_haz<-Reduce(`+`,DATA_list_hazest)
+  
+  haz_cont<-no_of_events/sum_haz  ### Breslow estimates of cumulative hazard
+```
+
+The covariates  to be balanced in the  population who made a visit were saved in the matrix *DesignMat_vis*, which included $Z$, $X_1(t)$,  $X_2(t)$, $X_1(t)X_2(t)$ as well as the time variable $t$ and its interaction with other covariates.    The covariate means for the at-risk population were saved in *constrain*.  The inverse of the selection function was saved in *offset*. We used the function *bal_fit_fun_sa* to estimate the balancing weights with  *DesignMat_vis*, *constrain* and *offset* as inputs. We then applied these weights in the linear model. 
+
+```{r, echo=TRUE}
+ DesignMat_int<-as.matrix(DATA[,var_vec])
+ DesignMat<-cbind(1,DATA$t_start, DesignMat_int, DesignMat_int*DATA$t_start)  
+
+  
+ offset<-exp(-0.3*DATA$Y[vis_ind])
+ # covariate means for the at-risk population
+ constrain<-colSums(DesignMat*rep(haz_cont,no_of_pat)) 
+ DesignMat_vis<-DesignMat[vis_ind,]
+
+
+ Bal_weights<-bal_fit_fun_sa(DesignMat_vis,constrain, offset) 
+  
+ bal_geemod<-lm(Y~Z+t_stop,weights=Bal_weights,data=DATA[vis_ind,])
+ bal_geeest<-bal_geemod$coef
+ print(summary(bal_geemod))
+  
+```
+
+The IIWE estimate  of $\beta_1$, $\beta_2$ using the balancing weights are `r round(bal_geeest[2], digits=2)` and `r round(bal_geeest[3], digits=2)`, respectively. The estimate of $\beta_1$ was closer to the true value than that from the IIWE with the weights estimated by the Cox model. The estimates of $\beta_2$ were similar. 
+
+
+
+### 4. Confidence intervals
+
+Bootstrap and jackknife confidence intervals for  $\beta_1$, $\beta_2$  can be constructed. In particular, jackknife can be  useful when there are convergence issues for estimating the weights due to ill-conditioned matrices in a particular bootstrap sample.  Specifically, let $n$ be the total number of patients. We can leave out the $i$th patient's data in the $i$th jackknife sample ($i=1, \ldots, n$). The weight estimation and   estimation of parameters (e.g. $\beta_1$, $\beta_2$) are then repeated for the $i$th jackknife sample. Let $\hat{{\beta}}^J_{k,i}$  denote the $i$th jackknife estimate of  $\beta_k$ ($k=1,2$) .   We calculate the jackknife standard error of $\beta_k$  as 
+$$
+\frac{1}{n(n-1)} \sum_{i=1}^n (\hat{{\beta}}^J_{k,i}-\bar{{\beta}}^J_{k})^2, ~~~~~~k=1,2
+$$ where $\bar{{\beta}}^J_{k}=\sum_{i=1}^n \hat{{\beta}}^J_{k,i}/n$.  $95\%$ Wald confidence intervals are then constructed using the jackknife standard errors. 
+
