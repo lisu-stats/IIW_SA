@@ -19,12 +19,12 @@ source('Functions.R') ## functions to be called
 ### 1. Data
 
 We simulated longitudinal continuous data  based on the data generating mechanism described in Section 3.1 of Yiu and Su (2023).
-Let $t=0.01,0.02,\ldots,0.49, 5$ be the possible visit times. At each visit time $t$,  two time-varying covariates $X_1(t)$ and $X_2(t)$ from independent normal distributions with mean $-Z$ and unit variance were generated. The group variable $Z$ was generated from  a Bernoulli(0.5) distribution  at baseline. 
+Let $t=0.01,0.02,\ldots,0.49, 5$ be the possible visit times. At each visit time $t$,  two time-varying covariates $Z_1(t)$ and $Z_2(t)$ from independent normal distributions with mean $-X$ and unit variance were generated. The group variable $X$ was generated from  a Bernoulli(0.5) distribution  at baseline. 
 The outcome $Y(t)$ at $t$ was generated from a Normal distribution with the  mean
 \begin{equation}\label{model}
-\mbox{E}\{Y(t)\mid X(t),Z\}=5+X_1(t)+X_2(t)-0.5X_1(t)X_2(t)-2Z-0.5t,
+\mbox{E}\{Y(t)\mid X, Z(t)\}=5+Z_1(t)+Z_2(t)-0.5Z_1(t)Z_2(t)-2X-0.5t,
 \end{equation}
-and a standard deviation of 0.5. For the visit process, We used the Bernoulli distribution to approximate a Cox model as the event/visit rate was set to be low. The visit indicator $dN(t)$ was from a Bernoulli distribution with success probability $\mbox{min}[1,\exp\{-3.05-2t+0.5X_1(t)+0.5X_2(t)+0.5X_1(t)X_2(t)+Z+0.3 Y(t)\}]$.  Note that the visit process depended on the current outcome $Y(t)$, therefore the visiting at random assumption was violated.
+and a standard deviation of 0.5. For the visit process, We used the Bernoulli distribution to approximate a Cox model as the event/visit rate was set to be low. The visit indicator $dN(t)$ was from a Bernoulli distribution with success probability $\mbox{min}[1,\exp\{-3.05-2t+0.5Z_1(t)+0.5Z_2(t)+0.5Z_1(t)Z_2(t)+X+0.3 Y(t)\}]$.  Note that the visit process depended on the current outcome $Y(t)$, therefore the visiting at random assumption was violated.
 
 
 ```{r}
@@ -33,7 +33,7 @@ no_of_pat<-500
 DATA<-DATAGEN_cont(no_of_pat)
 ```
 
-There were 500 patients in the simulated dataset.  Below were the first six rows of these data saved in the data.frame *DATA*. 'ID' was subject ID; 't_start' and 't_stop' were the start and end of the risk interval for the visit process. 'status' was the visit indicator.   'Z' was the baseline group indicator.  'Y' was the longitudinal outcome.  'X1' and 'X2' were time-varying covariates and 'X1X2' were their interaction.  The observed data only contained `r sum(DATA$status)` records from those who made a visit (i.e. with 'status=1'). 
+There were 500 patients in the simulated dataset.  Below were the first six rows of these data saved in the data.frame *DATA*. 'ID' was subject ID; 't_start' and 't_stop' were the start and end of the risk interval for the visit process. 'status' was the visit indicator.   'X' was the baseline group indicator.  'Y' was the longitudinal outcome.  'Z1' and 'Z2' were time-varying covariates and 'Z1Z2' were their interaction.  The observed data only contained `r sum(DATA$status)` records from those who made a visit (i.e. with 'status=1'). 
 
 
 ```{r}
@@ -46,7 +46,7 @@ print(DATA[1:6, ], row.names = F)
 ### 2. Marginal model
 
 
-We were interested in estimating the regression coefficients $\beta_1$ and $\beta_2$ in the model for the marginal mean of the outcome $\mbox{E} \{Y (t) \mid Z, t \}= \beta_0+\beta_1 Z+ \beta_2 t$ . The true values of $\beta_1$ and $\beta_2$ were $-4.5$ and $-0.5$, respectively, which were obtained by averaging out $X_1(t)$ and $X_2(t)$ from the model in \eqref{model}. 
+We were interested in estimating the regression coefficients $\beta_1$ and $\beta_2$ in the model for the marginal mean of the outcome $\mbox{E} \{Y (t) \mid X, t \}= \beta_0+\beta_1 X+ \beta_2 t$ . The true values of $\beta_1$ and $\beta_2$ were $-4.5$ and $-0.5$, respectively, which were obtained by averaging out $Z_1(t)$ and $Z_2(t)$ from the model in \eqref{model}. 
 
 
 
@@ -60,7 +60,7 @@ Without weighting, we can fit  a linear model to the observed  data.
 
 ```{r, echo=TRUE}
 vis_ind<-which(DATA$status==1)
-ugeemod<-lm(Y~Z+t_stop,data=DATA[vis_ind,])
+ugeemod<-lm(Y~X+t_stop,data=DATA[vis_ind,])
 ugeeest<-ugeemod$coef
 print(summary(ugeemod))
 ```
@@ -78,8 +78,8 @@ If the selection function was omitted, we can  fit a Cox model using the observe
 
 ```{r, echo=TRUE}
   library(survival)
-  coxmod<-coxph(formula=Surv(t_start,t_stop,status)~Z+X1+X2+X1X2,data=DATA)
-  var_vec<-c("Z","X1","X2","X1X2")
+  coxmod<-coxph(formula=Surv(t_start,t_stop,status)~X+Z1+Z2+Z1Z2,data=DATA)
+  var_vec<-c("X","Z1","Z2","Z1Z2")
   hazest<-exp(colSums(coxmod$coef*t(as.matrix(DATA[,var_vec]))))
   print(coxmod)
   
@@ -89,7 +89,7 @@ We  used  the inverse of the estimated visit intensity as weights in the linear 
 
 
 ```{r, echo=TRUE}
-  wgeemod_noselect<-lm(Y~Z+t_stop,weights=1/hazest[vis_ind],data=DATA[vis_ind,])
+  wgeemod_noselect<-lm(Y~X+t_stop,weights=1/hazest[vis_ind],data=DATA[vis_ind,])
   wgeeest_noselect<-wgeemod_noselect$coef
   print(summary(wgeemod_noselect))
 
@@ -104,7 +104,7 @@ We then fit a Cox model  with the observed covariates and the correct selection 
 ```{r, echo=TRUE}
 DATA$w <- exp(-0.3*DATA$Y*DATA$status)
 DATA$of <- -log(DATA$w)
-coxmod <- coxph(formula=Surv(t_start,t_stop,status)~Z+X1+X2+X1X2+offset(of),
+coxmod <- coxph(formula=Surv(t_start,t_stop,status)~X+Z1+Z2+Z1Z2+offset(of),
               data=DATA, weight=w, ties='breslow') 
 print(summary(coxmod))
 ```
@@ -112,10 +112,10 @@ print(summary(coxmod))
 Then we saved the exponential of the linear predictor function  of the fitted Cox model in *hazest*. Together with the specified selection function, we  estimated the inverse visit intensities and saved in *iiweight*, which were then included  in the linear model for the observed longitudinal continuous data as weights.   
 
 ```{r, echo=TRUE}
-var_vec<-c("Z","X1","X2","X1X2" )
+var_vec<-c("X","Z1","Z2","Z1Z2" )
 hazest<-exp(colSums(coxmod$coef*t(as.matrix(DATA[,var_vec]))))
 iiweight<-1/hazest[vis_ind]*exp(-0.3*DATA$Y[vis_ind])
-wgeemod<-lm(Y~Z+t_stop,weights=iiweight,data=DATA[vis_ind,])
+wgeemod<-lm(Y~X+t_stop,weights=iiweight,data=DATA[vis_ind,])
 wgeeest<-wgeemod$coef
 print(summary(wgeemod))
 ```
@@ -142,7 +142,7 @@ To obtain the  balancing weights proposed in Yiu and Su (2023), we first estimat
   haz_cont<-no_of_events/sum_haz  ### Breslow estimates of cumulative hazard
 ```
 
-The covariates  to be balanced in the  population who made a visit were saved in the matrix *DesignMat_vis*, which included $Z$, $X_1(t)$,  $X_2(t)$, $X_1(t)X_2(t)$ as well as the time variable $t$ and its interaction with other covariates.    The covariate means for the at-risk population were saved in *constrain*.  The inverse of the selection function was saved in *offset*. We used the function *bal_fit_fun_sa* to estimate the balancing weights with  *DesignMat_vis*, *constrain* and *offset* as inputs. We then applied these weights in the linear model. 
+The covariates  to be balanced in the  population who made a visit were saved in the matrix *DesignMat_vis*, which included $X$, $Z_1(t)$,  $Z_2(t)$, $Z_1(t)Z_2(t)$ as well as the time variable $t$ and its interaction with other covariates.    The covariate means for the at-risk population were saved in *constrain*.  The inverse of the selection function was saved in *offset*. We used the function *bal_fit_fun_sa* to estimate the balancing weights with  *DesignMat_vis*, *constrain* and *offset* as inputs. We then applied these weights in the linear model. 
 
 ```{r, echo=TRUE}
  DesignMat_int<-as.matrix(DATA[,var_vec])
@@ -157,7 +157,7 @@ The covariates  to be balanced in the  population who made a visit were saved in
 
  Bal_weights<-bal_fit_fun_sa(DesignMat_vis,constrain, offset) 
   
- bal_geemod<-lm(Y~Z+t_stop,weights=Bal_weights,data=DATA[vis_ind,])
+ bal_geemod<-lm(Y~X+t_stop,weights=Bal_weights,data=DATA[vis_ind,])
  bal_geeest<-bal_geemod$coef
  print(summary(bal_geemod))
   

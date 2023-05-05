@@ -31,9 +31,9 @@ DATAGEN_cont<-function(n){
   
   
   DATA<-data.frame(ID=rep(1:n,each=500),t_start=rep(seq(from=0,to=4.99,by=0.01),n),t_stop=rep(seq(from=0.01,to=5,by=0.01),n),
-                   status=unlist(VDATA),Y=unlist(YDATA),Z=rep(A,each=n),X1=unlist(XDATA1),X2=unlist(XDATA2))
+                   status=unlist(VDATA),Y=unlist(YDATA),X=rep(A,each=n),Z1=unlist(XDATA1),Z2=unlist(XDATA2))
   
-  DATA$X1X2=DATA$X1*DATA$X2
+  DATA$Z1Z2=DATA$Z1*DATA$Z2
   
   
   DATA}
