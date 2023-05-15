@@ -98,7 +98,7 @@ The  standard IIWE estimates of $\beta_1$, $\beta_2$ were `r round(wgeeest_nosel
 $\beta_2$ was underestimated.  
 
 
-We then fit a Cox model  with the observed covariates and the correct selection function. Following the sensitivity analysis approach  described in Sections 2.2 and 2.4 in Yiu and Su (2023), we set the inverse of the selection function, $\exp\{-0.3 Y(t)\}$, as the case weights *w* when  the visit indicator *status=1*. Note that *w=1* if *status=0*. An offset term $-\log [\exp\{-0.3 Y(t)\}]$ was created to prevent the *coxph* function from recalculating the weighted sums of the covariates in the score functions of the Cox model using the case weights *w*. We therefore were able to use the weighted score functions in equation (2.8) of Yiu and Su (2023) to estimate the rest of the  parameters in the Cox model.  
+We then fit a Cox model  with the observed covariates and the correct selection function. Following the sensitivity analysis approach  described in Sections 2.2 and 2.3 in Yiu and Su (2023), we set the inverse of the selection function, $\exp\{-0.3 Y(t)\}$, as the case weights *w* when  the visit indicator *status = 1*. Note that *w=1* if *status = 0*. If *status = 1*, an offset term $-\log [\exp\{-0.3 Y(t)\}]$ was created, while if *status = 0*, the offset term was set at zero. Using offset terms was  to prevent the *coxph* function from recalculating the weighted sums of the covariates in the score functions of the Cox model using the case weights *w*. We therefore were able to use the estimating equations in (2.7) of Yiu and Su (2023) to estimate the rest of the  parameters in the Cox model.  
 
 
 ```{r, echo=TRUE}
