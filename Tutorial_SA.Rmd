@@ -1,5 +1,5 @@
 ---
-title: "A quick tutorial of implementing  the sensitivity analysis approach for informative visit times in Yiu and Su (2023)"
+title: "A quick tutorial of implementing  the sensitivity analysis approach for informative visit times in Yiu and Su (2024)"
 author: "Li Su, Sean Yiu"
 date: ""
 header-includes:
@@ -10,7 +10,7 @@ output: pdf_document
 knitr::opts_chunk$set(echo = FALSE, fig.width=10, fig.height=5,error=FALSE, message=FALSE, warning=FALSE)
 ```
 
-We provided a quick tutorial to demonstrate how to implement the  sensitivity analysis approach for informative visit times in marginal regression analysis  proposed in  Yiu and Su (2023). Functions to be called in this tutorial were saved in *Functions.R*. 
+We provided a quick tutorial to demonstrate how to implement the  sensitivity analysis approach for informative visit times in marginal regression analysis  proposed in  Yiu and Su (2024). Functions to be called in this tutorial were saved in *Functions.R*. 
 ```{r, echo=T}
 source('Functions.R') ## functions to be called 
 ```
@@ -18,7 +18,7 @@ source('Functions.R') ## functions to be called
 
 ### 1. Data
 
-We simulated longitudinal continuous data  based on the data generating mechanism described in Section 3.1 of Yiu and Su (2023).
+We simulated longitudinal continuous data  based on the data generating mechanism described in Section 3 of the Supplementary Materials of Yiu and Su (2024).
 Let $t=0.01,0.02,\ldots,0.49, 5$ be the possible visit times. At each visit time $t$,  two time-varying covariates $Z_1(t)$ and $Z_2(t)$ from independent normal distributions with mean $-X$ and unit variance were generated. The group variable $X$ was generated from  a Bernoulli(0.5) distribution  at baseline. 
 The outcome $Y(t)$ at $t$ was generated from a Normal distribution with the  mean
 \begin{equation}\label{model}
@@ -33,7 +33,7 @@ no_of_pat<-500
 DATA<-DATAGEN_cont(no_of_pat)
 ```
 
-There were 500 patients in the simulated dataset.  Below were the first six rows of these data saved in the data.frame *DATA*. 'ID' was subject ID; 't_start' and 't_stop' were the start and end of the risk interval for the visit process. 'status' was the visit indicator.   'X' was the baseline group indicator.  'Y' was the longitudinal outcome.  'Z1' and 'Z2' were time-varying covariates and 'Z1Z2' were their interaction.  The observed data only contained `r sum(DATA$status)` records from those who made a visit (i.e. with 'status=1'). 
+There were 500 patients in the simulated data set.  Below were the first six rows of these data saved in the data.frame *DATA*. 'ID' was subject ID; 't_start' and 't_stop' were the start and end of the risk interval for the visit process. 'status' was the visit indicator.   'X' was the baseline group indicator.  'Y' was the longitudinal outcome.  'Z1' and 'Z2' were time-varying covariates and 'Z1Z2' were their interaction.  The observed data only contained `r sum(DATA$status)` records from those who made a visit (i.e. with 'status'=1). 
 
 
 ```{r}
@@ -46,13 +46,13 @@ print(DATA[1:6, ], row.names = F)
 ### 2. Marginal model
 
 
-We were interested in estimating the regression coefficients $\beta_1$ and $\beta_2$ in the model for the marginal mean of the outcome $\mbox{E} \{Y (t) \mid X, t \}= \beta_0+\beta_1 X+ \beta_2 t$ . The true values of $\beta_1$ and $\beta_2$ were $-4.5$ and $-0.5$, respectively, which were obtained by averaging out $Z_1(t)$ and $Z_2(t)$ from the model in \eqref{model}. 
+We were interested in estimating the regression coefficients $\beta_1$ and $\beta_2$ in the model for the marginal mean of the outcome $\mbox{E} \{Y (t) \mid X, t \}= \beta_0+\beta_1 X+ \beta_2 t$ . The true values of $\beta_1$ and $\beta_2$ were $-4.5$ and $-0.5$, respectively, which were obtained by averaging out $Z_1(t)$ and $Z_2(t)$ from the model in~\eqref{model}. 
 
 
 
 ### 3. Estimators of $\beta_1$ and $\beta_2$
 
-For all estimators of $\beta_1$ and $\beta_2$ except the naive estimator, we assumed that the selection function $\phi Y(t)$ was correctly specified. In our case $\phi=0.3$. In practice, we can set $\phi$ at plausible values to assess the sensitivity of substantive conclusions to violations of the visiting at random assumption. 
+For all estimators of $\beta_1$ and $\beta_2$ except the naive estimator, we assumed that the selection function $\phi Y(t)$ was correctly specified. In our case, $\phi=0.3$. In practice, we can set $\phi$ at plausible values to assess the sensitivity of substantive conclusions to violations of the visiting at random assumption; see Section 5 for details of calibrating the range of  $\phi$ against observed information. 
 
 #### 3.1 The naive estimator without inverse intensity weighting 
 
@@ -73,12 +73,12 @@ The  naive  estimates of $\beta_1$ and $\beta_2$ were `r round(ugeeest[2], digit
 
 #### 3.2 The standard inverse intensity weighted estimator (IIWE) with weights estimated using a Cox model
 
-If the selection function was omitted, we can  fit a Cox model using the observed covariates. Then we estimated the visit intensities and saved them in *hazest*. 
+If the selection function was omitted, we can  fit a Cox model using the observed covariates only. Then we estimated the visit intensities and saved them in *hazest*. 
 
 
 ```{r, echo=TRUE}
   library(survival)
-  coxmod<-coxph(formula=Surv(t_start,t_stop,status)~X+Z1+Z2+Z1Z2,data=DATA)
+  coxmod<-coxph(formula=Surv(t_start,t_stop,status)~X+Z1+Z2+Z1Z2,ties='breslow',data=DATA)
   var_vec<-c("X","Z1","Z2","Z1Z2")
   hazest<-exp(colSums(coxmod$coef*t(as.matrix(DATA[,var_vec]))))
   print(coxmod)
@@ -94,11 +94,11 @@ We  used  the inverse of the estimated visit intensity as weights in the linear 
   print(summary(wgeemod_noselect))
 
 ```
-The  standard IIWE estimates of $\beta_1$, $\beta_2$ were `r round(wgeeest_noselect[2], digits=2)` and `r round(wgeeest_noselect[3], digits=2)`, respectively. The estimate of $\beta_1$ was close to the true value, but 
+The  standard IIWE estimates of $\beta_1$, $\beta_2$ were `r round(wgeeest_noselect[2], digits=2)` and `r round(wgeeest_noselect[3], digits=2)`, respectively. The estimate of $\beta_1$ was now overestimated, but 
 $\beta_2$ was underestimated.  
 
 
-We then fit a Cox model  with the observed covariates and the correct selection function. Following the sensitivity analysis approach  described in Sections 2.2 and 2.3 in Yiu and Su (2023), we set the inverse of the selection function, $\exp\{-0.3 Y(t)\}$, as the case weights *w* when  the visit indicator *status = 1*. Note that *w=1* if *status = 0*. If *status = 1*, an offset term $-\log [\exp\{-0.3 Y(t)\}]$ was created, while if *status = 0*, the offset term was set at zero. Using offset terms was  to prevent the *coxph* function from recalculating the weighted sums of the covariates in the score functions of the Cox model using the case weights *w*. We therefore were able to use the estimating equations in (2.7) of Yiu and Su (2023) to estimate the rest of the  parameters in the Cox model.  
+We then fit a Cox model  with the observed covariates and the correct selection function. Following the sensitivity analysis approach  described in Sections 2.2 and 2.4 in Yiu and Su (2024), we set the inverse of the selection function, $\exp\{-0.3 Y(t)\}$, as the case weights *w* when  the visit indicator *status = 1*. Note that *w=1* if *status = 0*. If *status = 1*, an offset term $-\log [\exp\{-0.3 Y(t)\}]$ was created, while if *status = 0*, the offset term was set at zero. Using offset terms was  to prevent the *coxph* function from recalculating the weighted sums of the covariates in the score functions of the Cox model using the case weights *w*. We therefore were able to use the estimating equations in (9) of Yiu and Su (2024) to estimate the rest of the  parameters in the Cox model.  
 
 
 ```{r, echo=TRUE}
@@ -109,7 +109,7 @@ coxmod <- coxph(formula=Surv(t_start,t_stop,status)~X+Z1+Z2+Z1Z2+offset(of),
 print(summary(coxmod))
 ```
 
-Then we saved the exponential of the linear predictor function  of the fitted Cox model in *hazest*. Together with the specified selection function, we  estimated the inverse visit intensities and saved in *iiweight*, which were then included  in the linear model for the observed longitudinal continuous data as weights.   
+Then we saved the exponential of the linear predictor function  of the fitted Cox model in *hazest*. Together with the specified selection function, we  estimated the inverse visit intensities and saved in *iiweight*, which were then included  in the linear model for the observed longitudinal continuous data as the inverse intensity weights.   
 
 ```{r, echo=TRUE}
 var_vec<-c("X","Z1","Z2","Z1Z2" )
@@ -128,7 +128,7 @@ The  standard IIWE estimates of $\beta_1$, $\beta_2$ now became `r round(wgeeest
 
 #### 3.3 The IIWE with the balancing weights 
 
-To obtain the  balancing weights proposed in Yiu and Su (2023), we first estimated the increments of cumulative hazard function using the Breslow estimator, where the visit indicator *status* was multiplied by $\exp\{-0.3 Y(t)\}$ to account for the impact of the selection function.  These estimates were saved in *haz_cont*.  
+To obtain the  balancing weights proposed in Yiu and Su (2024), we first estimated the increments of cumulative hazard function using the Breslow estimator, where the visit indicator *status* was multiplied by $\exp\{-0.3 Y(t)\}$ to account for the impact of the selection function.  These estimates were saved in *haz_cont*.  
 
 ```{r, echo=TRUE}
   DATA$status2<-DATA$status*exp(-0.3*DATA$Y)
@@ -142,7 +142,7 @@ To obtain the  balancing weights proposed in Yiu and Su (2023), we first estimat
   haz_cont<-no_of_events/sum_haz  ### Breslow estimates of cumulative hazard
 ```
 
-The covariates  to be balanced in the  population who made a visit were saved in the matrix *DesignMat_vis*, which included $X$, $Z_1(t)$,  $Z_2(t)$, $Z_1(t)Z_2(t)$ as well as the time variable $t$ and its interaction with other covariates.    The covariate means for the at-risk population were saved in *constrain*.  The inverse of the selection function was saved in *offset*. We used the function *bal_fit_fun_sa* to estimate the balancing weights with  *DesignMat_vis*, *constrain* and *offset* as inputs. We then applied these weights in the linear model. 
+The observed covariates  to be balanced in the  population who made a visit were saved in the matrix *DesignMat_vis*, which included $X$, $Z_1(t)$,  $Z_2(t)$, $Z_1(t)Z_2(t)$ as well as the time variable $t$ and its interaction with other covariates.    The covariate means for the at-risk population were saved in *constrain*.  The inverse of the selection function was saved in *offset*. We used the function *bal_fit_fun_sa* to estimate the balancing weights with  *DesignMat_vis*, *constrain* and *offset* as inputs. We then applied these weights in the linear model. 
 
 ```{r, echo=TRUE}
  DesignMat_int<-as.matrix(DATA[,var_vec])
@@ -163,7 +163,7 @@ The covariates  to be balanced in the  population who made a visit were saved in
   
 ```
 
-The IIWE estimate  of $\beta_1$, $\beta_2$ using the balancing weights are `r round(bal_geeest[2], digits=2)` and `r round(bal_geeest[3], digits=2)`, respectively. The estimate of $\beta_1$ was closer to the true value than that from the IIWE with the weights estimated by the Cox model. The estimates of $\beta_2$ were similar. 
+The IIWE estimate  of $\beta_1$, $\beta_2$ using the balancing weights are `r round(bal_geeest[2], digits=2)` and `r round(bal_geeest[3], digits=2)`, respectively. The estimates of $\beta_1$ and $\beta_2$ were now closer to the true values than those from the IIWE with the weights estimated by the Cox model.  
 
 
 
@@ -173,4 +173,63 @@ Bootstrap and jackknife confidence intervals for  $\beta_1$, $\beta_2$  can be c
 $$
 \frac{1}{n(n-1)} \sum_{i=1}^n (\hat{{\beta}}^J_{k,i}-\bar{{\beta}}^J_{k})^2, ~~~~~~k=1,2
 $$ where $\bar{{\beta}}^J_{k}=\sum_{i=1}^n \hat{{\beta}}^J_{k,i}/n$.  $95\%$ Wald confidence intervals are then constructed using the jackknife standard errors. 
+
+### 5. Calibrating the range of the sensitivity parameter
+
+We have demonstrated how to implement the inverse intensity weighted estimators proposed in Yiu and Su (2024) for a fixed value of the sensitivity parameter.  In this section, we demonstrate how to calibrate the range of the sensitivity parameter against the information contained in the observed history. 
+
+We first estimate the explained variation by the two time-varying covariates $Z_1(t)$ and $Z_2(t)$, the group variable $X$ and time $t$ in the Cox model assuming visiting at random (VAR). 
+As Cox models with time-varying covariates can be approximated by pooled logistic models (see Section 2.3 of Yiu and Su (2024) for details), we can use the formula (15)  in Franks et al. (2020) for the variance explained by covariates $X$ in a logistic model:
+$$
+ \rho_{X}^2= \frac{\mbox{var}(m(X))}{\mbox{var}(m(X))+\pi^2/3}, 
+$$
+where $m(X)$ is the linear predictor in a logistic model. We apply this formula to the fitted Cox model under the visiting at random assumption in Section 3.2, where  the equivilant linear predictor is  $$m(\bm{Z}, t)=\log\{\hat{\lambda}_0(t)\Delta(t)\}+\hat{\bm{\gamma}}^{\mbox{T}} \bm{Z}, $$
+where $\bm Z=(Z_1(t), Z_2(t), X)$, and $\hat{\lambda}_0(t)$ are the baseline intensity estimates, $\Delta(t)$ is the interval length of the counting process format data \verb|t_start,t_stop)|  and $\hat{\bm{\gamma}}$ are the regression coefficient estimates in the Cox model. 
+
+```{r, echo=TRUE}
+exp.var<-predict(coxmod, type='expected')
+exp.prob<-exp.var*0.01
+
+varmx<-var(log(exp.prob[exp.var>0]))
+rhox2=varmx/(varmx+pi^2/3)
+rhox2
+```
+The variation explained by the covariates and time $t$ in the Cox model under VAR, $\rho_{\bm{Z}, t}^2$, is `r round(rhox2, digits=3)`.
+
+Now we obtain the variation explained by the null Cox model without any covariates. 
+```{r, echo=TRUE}
+coxmod.null<-coxph(formula=Surv(t_start,t_stop,status)~1,ties='breslow', data=DATA)
+exp.null<-predict(coxmod.null, type='expected')
+exp.null.prob<-exp.null*0.01
+
+varmx.null<-var(log(exp.null[exp.null>0]))
+rhox2.null=varmx.null/(varmx.null+pi^2/3)
+rhox2.null
+```
+The variation explained by the null model including time $t$ only, $\rho_{t}^2$ is `r round(rhox2.null, digits=3)`. 
+
+Next the partial variance  explained by $\bm{Z}$ given $t$  (formula (16) in Franks et al, 2020) is  
+$$ \rho_{\bm{Z} \mid t}^2= \frac{\rho_{\bm{Z}, t}^2-\rho_{t}^2}{1-\rho_{t}^2}.$$
+
+```{r, echo=TRUE}
+rhostar=(rhox2-rhox2.null)/(1-rhox2.null) 
+rhostar
+```
+And in this data example, $\rho_{\bm{Z} \mid t}^2$ is `r round(rhostar, digits=3)`.
+
+Suppose that we assume that the additional variation explained by $Y(t)$ given $\bm{Z}$ is no more than the partial variance explained by $\bm{Z}$, so that $\rho_{ Y(t) \mid \bm{Z}, t}^2 \le \rho_{\bm{Z} \mid t}^2$. We can determine the range of the sensitivity parameter $\phi$ by the formula in (18) of Franks et al. (2020),
+$$
+ |\phi|=\frac{1}{\sigma_r}\sqrt{\frac{\rho_{ Y(t) \mid \bm{Z}, t}^2}{1-\rho_{ Y(t) \mid \bm{Z}, t}^2}\{\mbox{var}(m(\bm{Z}, t))+\pi^2/3\}},
+$$
+where $\sigma_r= \sqrt{E[var \{Y(t) \mid \bm{Z},t\}]}$ (the subscript $r$ stands for \emph{residual}). $\sigma_r$ is not directly estimable because $Y(t)$ is only observed when $d N(t)=1$. However, in the setting of our data example,   $\sqrt{E[var \{Y(t) \mid \bm{Z},t\}]}= \sqrt{var \{Y(t) \mid \bm{Z},t, dN(t)=1\}}$ because $Y(t)$ follows a homoscedastic model and the residual standard deviation is independent of $\bm{Z}, t, dN(t)$. Therefore, we can use the residual standard deviation in a regression model for observed $Y(t)$ given $\bm{Z},t$ to estimate $\sigma_r$. 
+```{r, echo=TRUE}
+library(splines)
+RI_mod<-lm(Y~ns(t_stop, df=5)+X+Z1+Z2+Z1Z2,  data=DATA[which(DATA$status==1),])
+hist(RI_mod$residuals, xlab='residuals', main='')
+sdYX<-sd(RI_mod$residuals)
+phi=1/sdYX*sqrt(rhostar/(1-rhostar)*(varmx+pi^2/3))
+```
+The estimated $\sigma_r$ is `r round(sdYX, digits=3)`. The corresponding $|\phi|$ for $\rho_{Y(t) \mid \bm{Z}, t}^2$ set at `r round(rhostar, digits=3)` is `r round(phi, digits=2)`, which is  larger than $0.3$,  the true value of $\phi$. This is because we  assume that the partial variation explained by $Y(t)$ can be as large as the partial variation explained by $\bm{Z}$, but in fact $\bm{Z}$ are stronger predictors of the visit intensity than $Y(t)$.  Thus in the true data-generating mechanism, the additional variation by $Y(t)$ is less than the variation already explained by  $\bm{Z}$.   
+
+
 

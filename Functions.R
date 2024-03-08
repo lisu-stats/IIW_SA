@@ -1,7 +1,7 @@
 
 
 
-#################Data generating function: continuous outcome in the simulation study of Yiu and Su (2023)########################
+#################Data generating function: continuous outcome########################
 
 DATAGEN_cont<-function(n){
   
@@ -27,7 +27,7 @@ DATAGEN_cont<-function(n){
   
   VDATA<-list()
   for (k in 1:n){
-    VDATA[[k]]<-rbinom(500,1,pmin(exp(-3.05-2*t+1.25*XDATA1[[k]]+1.25*XDATA2[[k]]+A[k]+0.5*XDATA1[[k]]*XDATA2[[k]]+0.3*YDATA[[k]]),1))}
+    VDATA[[k]]<-rbinom(500,1,pmin(exp(-3.05-2*t+0.5*XDATA1[[k]]+0.5*XDATA2[[k]]+A[k]+0.5*XDATA1[[k]]*XDATA2[[k]]+0.3*YDATA[[k]]),1))}
   
   
   DATA<-data.frame(ID=rep(1:n,each=500),t_start=rep(seq(from=0,to=4.99,by=0.01),n),t_stop=rep(seq(from=0.01,to=5,by=0.01),n),
@@ -40,7 +40,8 @@ DATAGEN_cont<-function(n){
 
 
 
-#### function to estimate the balancing weights in the proposed IIWEs of Yiu and Su (2023), incorporating selection function
+
+#### function to estimate the balancing weights in the proposed IIWEs of Yiu and Su (2022), incorporating selection function
 bal_fit_fun_sa<-function(MAT,cons, offs)
 {
   library(nleqslv)
