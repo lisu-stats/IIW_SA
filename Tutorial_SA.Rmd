@@ -171,7 +171,7 @@ The IIWE estimate  of $\beta_1$, $\beta_2$ using the balancing weights are `r ro
 
 Bootstrap and jackknife confidence intervals for  $\beta_1$, $\beta_2$  can be constructed. In particular, jackknife can be  useful when there are convergence issues for estimating the weights due to ill-conditioned matrices in a particular bootstrap sample.  Specifically, let $n$ be the total number of patients. We can leave out the $i$th patient's data in the $i$th jackknife sample ($i=1, \ldots, n$). The weight estimation and   estimation of parameters (e.g. $\beta_1$, $\beta_2$) are then repeated for the $i$th jackknife sample. Let $\hat{{\beta}}^J_{k,i}$  denote the $i$th jackknife estimate of  $\beta_k$ ($k=1,2$) .   We calculate the jackknife standard error of $\beta_k$  as 
 $$
-\frac{1}{n(n-1)} \sum_{i=1}^n (\hat{{\beta}}^J_{k,i}-\bar{{\beta}}^J_{k})^2, ~~~~~~k=1,2
+\sqrt{\frac{n-1}{n} \sum_{i=1}^n (\hat{{\beta}}^J_{k,i}-\bar{{\beta}}^J_{k})^2}, ~~~~~~k=1,2
 $$ where $\bar{{\beta}}^J_{k}=\sum_{i=1}^n \hat{{\beta}}^J_{k,i}/n$.  $95\%$ Wald confidence intervals are then constructed using the jackknife standard errors. 
 
 ### 5. Calibrating the range of the sensitivity parameter
